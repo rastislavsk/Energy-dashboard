@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1419">
+<meta name="color-scheme" content="dark">
+<title>Energetický dashboard — PV / TČ / TUV / EV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0f1419; --bg2:#161c24; --card:#1b232d; --card2:#212b37;
+  --line:#2b3644; --tx:#e8edf3; --tx2:#9aa8b8; --tx3:#6b7a8c;
+  --pv:#f5b942; --grid:#5b6b7f; --ev:#4ea3f5; --tc:#f2704f; --tuv:#a97bf0; --home:#3ecf8e;
+  --good:#3ecf8e; --bad:#f2704f; --acc:#4ea3f5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1500px;margin:0 auto;padding:28px 22px 70px}
+header{margin-bottom:22px}
+h1{font-size:27px;font-weight:650;letter-spacing:-.4px}
+h1 .dot{color:var(--pv)}
+.sub{color:var(--tx2);font-size:14px;margin-top:5px}
+nav{display:flex;gap:6px;margin:24px 0 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav button{background:none;border:0;color:var(--tx2);font:600 14px/1 inherit;padding:12px 17px;cursor:pointer;
+  border-bottom:2px solid transparent;border-radius:6px 6px 0 0;transition:.15s}
+nav button:hover{color:var(--tx);background:var(--bg2)}
+nav button.on{color:var(--tx);border-bottom-color:var(--acc)}
+.tab{display:none}.tab.on{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:13px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 17px}
+.kpi .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);font-weight:600}
+.kpi .v{font-size:25px;font-weight:650;margin-top:7px;letter-spacing:-.5px}
+.kpi .u{font-size:13px;color:var(--tx2);font-weight:500;margin-left:3px}
+.kpi .d{font-size:12px;color:var(--tx3);margin-top:4px}
+.kpi.hl{background:linear-gradient(150deg,#1e2a38,#1b232d);border-color:#33465c}
+.grid{display:grid;gap:16px;margin-bottom:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(400px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:19px 20px 16px}
+.card h3{font-size:15px;font-weight:620;margin-bottom:3px}
+.card .hint{font-size:12.5px;color:var(--tx3);margin-bottom:14px}
+.chart{position:relative;height:300px}
+.chart.sm{height:230px}
+.chart.lg{height:360px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--tx3);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+th:first-child,td:first-child{text-align:left}
+tbody tr:hover{background:var(--card2)}
+tr.tot td{font-weight:650;border-top:1px solid var(--line);border-bottom:0}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;border-radius:3px}
+.tw{overflow-x:auto}
+.note{font-size:12.5px;color:var(--tx3);margin-top:12px;line-height:1.55}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:var(--card2);color:var(--tx2);margin-left:6px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--tx2);margin-top:10px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);color:var(--tx3);font-size:12.5px}
+
+/* ---------- MOBIL ---------- */
+@media(max-width:760px){
+  .wrap{padding:16px 12px 46px}
+  h1{font-size:20px;line-height:1.25}
+  .sub{font-size:12.5px}
+  nav{gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{padding:13px 14px;font-size:13.5px;white-space:nowrap;min-height:44px}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:9px}
+  .kpi{padding:12px 13px;border-radius:11px}
+  .kpi .l{font-size:10px;letter-spacing:.4px}
+  .kpi .v{font-size:20px;margin-top:5px}
+  .kpi .u{font-size:11px}
+  .kpi .d{font-size:11px;line-height:1.35}
+  .g2,.g3{grid-template-columns:1fr}
+  .grid{gap:12px}
+  .card{padding:15px 14px 13px;border-radius:12px}
+  .card h3{font-size:14.5px}
+  .chart{height:270px}.chart.sm{height:240px}.chart.lg{height:300px}
+  .tw{overflow-x:visible}
+  /* tabuľky -> karty */
+  table{font-size:13px}
+  table thead{display:none}
+  table tbody tr{display:block;background:var(--card2);border:1px solid var(--line);
+    border-radius:10px;margin-bottom:9px;overflow:hidden}
+  table tbody tr:hover{background:var(--card2)}
+  table td{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:8px 12px;border:0;border-bottom:1px solid rgba(255,255,255,.04);
+    white-space:normal;text-align:right}
+  table td:last-child{border-bottom:0}
+  table td::before{content:attr(data-l);color:var(--tx3);font-size:10.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.4px;text-align:left;flex:1 1 auto}
+  table td:first-child{background:rgba(255,255,255,.045);font-weight:650;font-size:13.5px;
+    justify-content:flex-start;text-align:left;padding:10px 12px}
+  table td:first-child::before{display:none}
+  tr.tot td:first-child{color:var(--acc)}
+  table td .bar{width:100%;margin-top:5px}
+  footer{font-size:11.5px}
+}
+@media(max-width:380px){ .kpis{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Energetický dashboard <span class="dot">·</span> PV / TČ / TUV / EV</h1>
+  <div class="sub">Zdroj: Google Sheet <b>EV PV TC</b> — hárky Summary, PV, TC, TUV, EV, Calcs &nbsp;·&nbsp; dáta k <b id="gen"></b></div>
+</header>
+<nav>
+  <button class="on" data-t="prehlad">Prehľad</button>
+  <button data-t="energia">Energetika</button>
+  <button data-t="financie">Financie</button>
+  <button data-t="co2">CO₂</button>
+  <button data-t="ev">EV detail</button>
+</nav>
+
+<section class="tab on" id="prehlad">
+  <div class="kpis" id="kpiMain"></div>
+  <div class="grid g2">
+    <div class="card"><h3>Mesačná spotreba podľa spotrebiča</h3><div class="hint">kWh · stĺpce = spotreba, žltá čiara = výroba PV</div><div class="chart lg"><canvas id="c1"></canvas></div></div>
+    <div class="card"><h3>Výroba PV: vlastná spotreba vs. export</h3><div class="hint">kWh mesačne</div><div class="chart lg"><canvas id="c2"></canvas></div></div>
+  </div>
+  <div class="grid g3">
+    <div class="card"><h3>Mix spotreby (12m)</h3><div class="hint">posledných 12 mesiacov</div><div class="chart sm"><canvas id="c3"></canvas></div></div>
+    <div class="card"><h3>Zdroj energie (12m)</h3><div class="hint">z PV vs. nákup zo siete</div><div class="chart sm"><canvas id="c4"></canvas></div></div>
+    <div class="card"><h3>Ročné náklady na energie</h3><div class="hint">EUR / rok podľa scenára</div><div class="chart sm"><canvas id="c5"></canvas></div></div>
+  </div>
+</section>
+
+<section class="tab" id="energia">
+  <div class="kpis" id="kpiEne"></div>
+  <div class="grid g2">
+    <div class="card"><h3>Spotreba: z PV vs. zo siete</h3><div class="hint">kWh · zelená čiara = sebestačnosť %</div><div class="chart lg"><canvas id="e1"></canvas></div></div>
+    <div class="card"><h3>12-mesačný kĺzavý priemer</h3><div class="hint">vyhladený trend výroby, spotreby a exportu</div><div class="chart lg"><canvas id="e2"></canvas></div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Tepelné čerpadlo — spotreba na kúrenie</h3><div class="hint">kWh · Daikin + prídavné el. radiátory</div><div class="chart"><canvas id="e3"></canvas></div></div>
+    <div class="card"><h3>TUV — elektrický bojler</h3><div class="hint">kWh od 16/3/2026, kedy nahradil plyn</div><div class="chart"><canvas id="e4"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Rozdelenie spotreby 2025 podľa zdroja</h3><div class="hint">koľko z ktorej spotreby pokryla PV a koľko sieť</div><div class="tw"><table id="tZse"></table></div></div>
+</section>
+
+<section class="tab" id="financie">
+  <div class="kpis" id="kpiFin"></div>
+  <div class="grid g2">
+    <div class="card"><h3>Ročné náklady podľa scenára</h3><div class="hint">EUR/rok · fosil → elektrifikácia → elektrifikácia s PV</div><div class="chart lg"><canvas id="f1"></canvas></div></div>
+    <div class="card"><h3>Úspora vďaka PV</h3><div class="hint">EUR/rok · reálny vs. ideálny scenár využitia</div><div class="chart lg"><canvas id="f2"></canvas></div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Cena elektriny za kWh</h3><div class="hint">porovnanie sadzieb a efektívnej ceny PV</div><div class="chart"><canvas id="f3"></canvas></div></div>
+    <div class="card"><h3>TUV: plyn vs. elektrina (2026)</h3><div class="hint">porovnanie nákladov na ohrev vody</div><div class="tw"><table id="tTuv"></table></div><div class="note" id="tuvNote"></div></div>
+  </div>
+  <div class="card"><h3>Detailný rozpad nákladov</h3><div class="tw"><table id="tFin"></table></div></div>
+</section>
+
+<section class="tab" id="co2">
+  <div class="kpis" id="kpiCo2"></div>
+  <div class="grid g2">
+    <div class="card"><h3>Emisný efekt — ročne</h3><div class="hint">t CO₂eq ušetrených za rok podľa piliera</div><div class="chart"><canvas id="k1"></canvas></div></div>
+    <div class="card"><h3>Emisný efekt — za životnosť</h3><div class="hint">t CO₂eq kumulatívne (EV 15r, TČ 15r, PV 30r)</div><div class="chart"><canvas id="k2"></canvas></div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Cena za tonu ušetreného CO₂</h3><div class="hint">EUR/t · z obstarávacej ceny vs. z rozdielu nákladov</div><div class="chart"><canvas id="k3"></canvas></div></div>
+    <div class="card"><h3>Úspora energie</h3><div class="hint">kWh/rok nahradenej fosílnej energie</div><div class="chart"><canvas id="k4"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Prehľad pilierov</h3><div class="tw"><table id="tCo2"></table></div><div class="note">Najlacnejší offset CO₂ má EV (rozdielová cena ~9 €/t), pretože prevádzkovo šetrí viac, než stála jeho vyššia obstarávacia cena. PV má najvyššiu cenu za tonu z obstarania, ale najdlhšiu životnosť.</div></div>
+</section>
+
+<section class="tab" id="ev">
+  <div class="kpis" id="kpiEv"></div>
+  <div class="grid g2">
+    <div class="card"><h3>Nabíjanie: doma vs. verejné</h3><div class="hint">kWh · modrá čiara = spotreba kWh/100 km</div><div class="chart lg"><canvas id="v1"></canvas></div></div>
+    <div class="card"><h3>Najazdené km a náklady</h3><div class="hint">km mesačne + EUR za nabíjanie</div><div class="chart lg"><canvas id="v2"></canvas></div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Zdravie batérie (SoH)</h3><div class="hint">% kapacity podľa OBD meraní</div><div class="chart"><canvas id="v3"></canvas></div></div>
+    <div class="card"><h3>Cena za kWh: doma vs. verejné</h3><div class="hint">EUR/kWh podľa mesiaca</div><div class="chart"><canvas id="v4"></canvas></div></div>
+  </div>
+  <div class="card"><h3>TCO porovnanie áut</h3><div class="hint">celkové náklady vlastníctva pri 33 276 km/rok</div><div class="tw"><table id="tCars"></table></div></div>
+  <div class="card" style="margin-top:16px"><h3>Mesačné dáta EV</h3><div class="tw"><table id="tEv"></table></div></div>
+</section>
+
+<footer>Vygenerované z Google Sheetu <b>EV PV TC</b>. Všetky čísla pochádzajú priamo z hárkov Summary / PV / TC / TUV / EV / Calcs — žiadne sú dopočítané mimo tabuľky okrem podielov a súčtov uvedených v grafoch.</footer>
+</div>
+<script>
+let DATA=null;
+
+const C={pv:'#f5b942',grid:'#5b6b7f',ev:'#4ea3f5',tc:'#f2704f',tuv:'#a97bf0',home:'#3ecf8e',
+         acc:'#4ea3f5',good:'#3ecf8e',bad:'#f2704f',muted:'#6b7a8c'};
+const MN=['Jan','Feb','Mar','Apr','Máj','Jún','Júl','Aug','Sep','Okt','Nov','Dec'];
+const nf=(v,d=0)=>v==null?'—':new Intl.NumberFormat('sk-SK',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+const eur=(v,d=0)=>v==null?'—':nf(v,d)+' €';
+const pc=(v,d=1)=>v==null?'—':nf(v*100,d)+' %';
+
+Chart.defaults.color='#9aa8b8';
+Chart.defaults.borderColor='#2b3644';
+Chart.defaults.font.family='-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif';
+Chart.defaults.font.size=11.5;
+Chart.defaults.plugins.legend.labels.usePointStyle=true;
+Chart.defaults.plugins.legend.labels.boxWidth=8;
+Chart.defaults.plugins.legend.labels.padding=14;
+Chart.defaults.plugins.tooltip.backgroundColor='#0f1419';
+Chart.defaults.plugins.tooltip.borderColor='#2b3644';
+Chart.defaults.plugins.tooltip.borderWidth=1;
+Chart.defaults.plugins.tooltip.padding=11;
+Chart.defaults.plugins.tooltip.cornerRadius=8;
+Chart.defaults.maintainAspectRatio=false;
+
+
+const CH={};
+function NC(el,cfg){if(CH[el.id])CH[el.id].destroy();CH[el.id]=new Chart(el,cfg);return CH[el.id];}
+function render(){
+const M=DATA.monthly, L=M[M.length-1], last12=M.slice(-12);
+const lbl=M.map(x=>MN[x.mi-1]+' '+String(x.y).slice(2));
+const sum=(a,k)=>a.reduce((s,x)=>s+(x[k]||0),0);
+document.getElementById('gen').textContent=new Date(DATA.generated).toLocaleDateString('sk-SK',{day:'numeric',month:'long',year:'numeric'});
+
+const gs=(stack)=>({grid:{color:'#232d3a'},stacked:!!stack,ticks:{maxRotation:0,autoSkipPadding:12}});
+const ys=(t,extra={})=>Object.assign({grid:{color:'#232d3a'},title:{display:!!t,text:t,color:'#6b7a8c'}},extra);
+
+function kpi(el,arr){document.getElementById(el).innerHTML=arr.map(k=>
+ `<div class="kpi${k.hl?' hl':''}"><div class="l">${k.l}</div><div class="v">${k.v}<span class="u">${k.u||''}</span></div>${k.d?`<div class="d">${k.d}</div>`:''}</div>`).join('');}
+
+/* ---------- PREHĽAD ---------- */
+const selfSuff = L.r12consPV/L.r12consAll;
+const b12={TC:sum(last12,'TC'),TUV:sum(last12,'TUV'),EV:sum(last12,'EVc'),home:sum(last12,'homeC')};
+kpi('kpiMain',[
+ {l:'Výroba PV (12m)',v:nf(L.r12pvProd),u:'kWh',hl:1,d:'11 kWp · '+nf(L.r12pvProd/11)+' kWh/kWp'},
+ {l:'Spotreba (12m)',v:nf(L.r12consAll),u:'kWh',d:'z toho '+nf(L.r12consPV)+' kWh z PV'},
+ {l:'Sebestačnosť',v:pc(selfSuff),u:'',hl:1,d:'podiel spotreby krytej z PV'},
+ {l:'Vlastná spotreba PV',v:pc(L.r12self),u:'',d:'zvyšok ide do siete'},
+ {l:'Nákup zo siete (12m)',v:nf(L.r12consGrid),u:'kWh',d:pc(L.r12buy)+' spotreby'},
+ {l:'Export do siete (12m)',v:nf(L.r12fed),u:'kWh',d:'≈ '+eur(L.r12fed*DATA.fin.priceSell)+' pri výkupe'},
+]);
+
+NC(c1,{data:{labels:lbl,datasets:[
+ {type:'bar',label:'TČ (kúrenie)',data:M.map(x=>x.TC),backgroundColor:C.tc,stack:'s',borderRadius:2},
+ {type:'bar',label:'TUV (bojler)',data:M.map(x=>x.TUV),backgroundColor:C.tuv,stack:'s',borderRadius:2},
+ {type:'bar',label:'EV (doma)',data:M.map(x=>x.EVc),backgroundColor:C.ev,stack:'s',borderRadius:2},
+ {type:'bar',label:'Domácnosť ostatné',data:M.map(x=>x.homeC),backgroundColor:C.home,stack:'s',borderRadius:2},
+ {type:'line',label:'Výroba PV',data:M.map(x=>x.pvProd),borderColor:C.pv,backgroundColor:C.pv,tension:.35,pointRadius:2,borderWidth:2.5}
+]},options:{scales:{x:gs(1),y:ys('kWh',{stacked:true})},interaction:{mode:'index',intersect:false}}});
+
+NC(c2,{data:{labels:lbl,datasets:[
+ {type:'bar',label:'Spotrebované z PV',data:M.map(x=>x.consPV),backgroundColor:C.pv,stack:'s',borderRadius:2},
+ {type:'bar',label:'Export do siete',data:M.map(x=>x.fed),backgroundColor:'#6b5a2e',stack:'s',borderRadius:2},
+ {type:'line',label:'Vlastná spotreba %',data:M.map(x=>x.selfOfProd*100),borderColor:C.good,tension:.35,pointRadius:2,borderWidth:2.5,yAxisID:'y2'}
+]},options:{scales:{x:gs(1),y:ys('kWh',{stacked:true}),y2:{position:'right',grid:{display:false},min:0,max:100,ticks:{callback:v=>v+'%'}}},interaction:{mode:'index',intersect:false}}});
+
+NC(c3,{type:'doughnut',data:{labels:['TČ kúrenie','TUV bojler','EV nabíjanie','Domácnosť'],
+ datasets:[{data:[b12.TC,b12.TUV,b12.EV,b12.home],backgroundColor:[C.tc,C.tuv,C.ev,C.home],borderWidth:0}]},
+ options:{cutout:'62%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.label+': '+nf(c.parsed)+' kWh ('+nf(c.parsed/(b12.TC+b12.TUV+b12.EV+b12.home)*100,1)+'%)'}}}}});
+
+NC(c4,{type:'doughnut',data:{labels:['Z PV (vlastné)','Nákup zo siete'],
+ datasets:[{data:[L.r12consPV,L.r12consGrid],backgroundColor:[C.pv,C.grid],borderWidth:0}]},
+ options:{cutout:'62%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.label+': '+nf(c.parsed)+' kWh'}}}}});
+
+const F=DATA.fin, tot=F.items.find(x=>x.name==='TOTAL');
+NC(c5,{type:'bar',data:{labels:['Fosil','Elektrifikácia\nbez PV','Elektrifikácia\ns PV'],
+ datasets:[{data:[tot.fossil,tot.elek,tot.pv],backgroundColor:[C.bad,C.pv,C.good],borderRadius:5}]},
+ options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>eur(c.parsed.y)+' / rok'}}},
+ scales:{x:{grid:{display:false}},y:ys('EUR / rok')}}});
+
+/* ---------- ENERGETIKA ---------- */
+kpi('kpiEne',[
+ {l:'Špecifický výnos',v:nf(L.r12pvProd/11),u:'kWh/kWp',hl:1,d:'12m · inštalovaných 11 kWp'},
+ {l:'Najlepší mesiac',v:nf(Math.max(...M.map(x=>x.pvProd||0))),u:'kWh',d:'výroba PV'},
+ {l:'Najhorší mesiac',v:nf(Math.min(...M.filter(x=>x.pvProd).map(x=>x.pvProd))),u:'kWh',d:'výroba PV'},
+ {l:'TČ kúrenie (12m)',v:nf(sum(last12,'TC')),u:'kWh',d:'SCOP ≈ 3,6–4,2 v sezóne'},
+ {l:'TUV bojler',v:nf(DATA.tuv.reduce((s,x)=>s+x.kwh,0)),u:'kWh',d:'od 16/3/2026 (5 mesiacov)'},
+ {l:'Pomer export/výroba',v:pc(L.r12fed/L.r12pvProd),u:'',d:'čo neviem spotrebovať'},
+]);
+
+NC(e1,{data:{labels:lbl,datasets:[
+ {type:'bar',label:'Z PV',data:M.map(x=>x.consPV),backgroundColor:C.pv,stack:'s',borderRadius:2},
+ {type:'bar',label:'Zo siete',data:M.map(x=>x.consGrid),backgroundColor:C.grid,stack:'s',borderRadius:2},
+ {type:'line',label:'Sebestačnosť %',data:M.map(x=>x.consPV/x.consAll*100),borderColor:C.good,tension:.35,pointRadius:2,borderWidth:2.5,yAxisID:'y2'}
+]},options:{scales:{x:gs(1),y:ys('kWh',{stacked:true}),y2:{position:'right',grid:{display:false},min:0,max:100,ticks:{callback:v=>v+'%'}}},interaction:{mode:'index',intersect:false}}});
+
+NC(e2,{type:'line',data:{labels:lbl,datasets:[
+ {label:'Výroba PV (12m)',data:M.map(x=>x.r12pvProd),borderColor:C.pv,tension:.3,pointRadius:0,borderWidth:2.5},
+ {label:'Spotreba (12m)',data:M.map(x=>x.r12consAll),borderColor:C.acc,tension:.3,pointRadius:0,borderWidth:2.5},
+ {label:'Export (12m)',data:M.map(x=>x.r12fed),borderColor:C.muted,tension:.3,pointRadius:0,borderWidth:2,borderDash:[5,4]},
+ {label:'Nákup zo siete (12m)',data:M.map(x=>x.r12consGrid),borderColor:C.bad,tension:.3,pointRadius:0,borderWidth:2}
+]},options:{scales:{x:gs(),y:ys('kWh')},interaction:{mode:'index',intersect:false},spanGaps:true}});
+
+const tcL=DATA.tc.map(x=>{const[y,m]=x.key.split('-');return MN[+m-1]+' '+y.slice(2)});
+NC(e3,{data:{labels:tcL,datasets:[
+ {type:'bar',label:'TČ Daikin',data:DATA.tc.map(x=>x.daikin),backgroundColor:C.tc,stack:'s',borderRadius:2},
+ {type:'bar',label:'El. radiátory',data:DATA.tc.map(x=>x.rad),backgroundColor:'#8c4030',stack:'s',borderRadius:2}
+]},options:{scales:{x:gs(1),y:ys('kWh',{stacked:true})},interaction:{mode:'index',intersect:false}}});
+
+NC(e4,{type:'bar',data:{labels:DATA.tuv.map(x=>{const[y,m]=x.key.split('-');return MN[+m-1]+' '+y.slice(2)}),
+ datasets:[{label:'Bojler EE',data:DATA.tuv.map(x=>x.kwh),backgroundColor:C.tuv,borderRadius:4}]},
+ options:{plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:ys('kWh')}}});
+
+document.getElementById('tZse').innerHTML=
+ '<thead><tr><th>Spotreba 2025</th><th>Spolu kWh</th><th>Z PV kWh</th><th>Zo siete kWh</th><th>Podiel PV</th></tr></thead><tbody>'+
+ DATA.zse.rows.map(r=>{const isT=r.name==='Consumption';
+  return `<tr class="${isT?'tot':''}"><td>${isT?'<b>Spolu</b>':r.name}</td><td data-l="Spolu kWh">${nf(r.kwh)}</td><td data-l="Z PV kWh">${nf(r.fromPV)}</td><td data-l="Zo siete kWh">${nf(r.fromGrid)}</td><td data-l="Podiel PV">${pc(r.fromPV/r.kwh)}<div class="bar"><i style="width:${r.fromPV/r.kwh*100}%;background:${C.pv}"></i></div></td></tr>`}).join('')+'</tbody>';
+
+/* ---------- FINANCIE ---------- */
+const sv=DATA.fin.savings.find(x=>x.name==='TOTAL');
+kpi('kpiFin',[
+ {l:'Náklady dnes (s PV)',v:eur(tot.pv),u:'/rok',hl:1,d:'elektrina pre dom, TČ, TUV aj auto'},
+ {l:'Fosílny scenár',v:eur(tot.fossil),u:'/rok',d:'plyn + benzín + sieťová EE'},
+ {l:'Ročná úspora',v:eur(tot.fossil-tot.pv),u:'',hl:1,d:pc(1-tot.pv/tot.fossil,0)+' oproti fosílu'},
+ {l:'Investícia do PV',v:eur(F.invest),u:'',d:'dotácia Zelená domácnostiam '+eur(F.dotacia)},
+ {l:'Návratnosť PV',v:nf(F.roi.real2,1),u:'rokov',d:'po dotácii · ideálne '+nf(F.roi.ideal2,1)+' r'},
+ {l:'Efektívna cena PV',v:nf(F.allIn,3),u:'€/kWh',d:'vs. nákup '+nf(F.priceBuy,3)+' €/kWh zo siete'},
+]);
+
+NC(f1,{type:'bar',data:{labels:F.items.filter(x=>x.name!=='TOTAL').map(x=>x.name.replace(' [Daikin]','').replace(' [PHM]','')),
+ datasets:[
+  {label:'Fosil',data:F.items.filter(x=>x.name!=='TOTAL').map(x=>x.fossil),backgroundColor:C.bad,borderRadius:4},
+  {label:'Elektrifikácia bez PV',data:F.items.filter(x=>x.name!=='TOTAL').map(x=>x.elek),backgroundColor:C.pv,borderRadius:4},
+  {label:'Elektrifikácia s PV',data:F.items.filter(x=>x.name!=='TOTAL').map(x=>x.pv),backgroundColor:C.good,borderRadius:4}]},
+ options:{scales:{x:{grid:{display:false}},y:ys('EUR / rok')},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+eur(c.parsed.y)}}}}});
+
+NC(f2,{type:'bar',data:{labels:F.savings.filter(x=>x.name!=='TOTAL').map(x=>x.name.replace(' [Daikin]','').replace(' [PHM]','')),
+ datasets:[
+  {label:'Reálna úspora',data:F.savings.filter(x=>x.name!=='TOTAL').map(x=>-x.real),backgroundColor:C.acc,borderRadius:4},
+  {label:'Ideálny scenár',data:F.savings.filter(x=>x.name!=='TOTAL').map(x=>-x.ideal),backgroundColor:'#2a5f8f',borderRadius:4}]},
+ options:{scales:{x:{grid:{display:false}},y:ys('EUR / rok')},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+eur(c.parsed.y)}}}}});
+
+NC(f3,{type:'bar',indexAxis:'y',data:{labels:['Nákup zo siete DD5 (2026)','Cena EE 2024 (pre porovnanie)','Efektívna cena PV („all-in“)','Výkup prebytkov do siete','Vlastná výroba (amortizácia)'],
+ datasets:[{data:[F.priceBuy,F.price2024,F.allIn,F.priceSell,F.prodPer],backgroundColor:[C.bad,'#8c6a3e',C.good,C.muted,C.pv],borderRadius:4}]},
+ options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>nf(c.parsed.x,4)+' €/kWh'}}},
+ scales:{y:{grid:{display:false}},x:ys('EUR / kWh')}}});
+
+const T=DATA.tuvCmp;
+document.getElementById('tTuv').innerHTML=
+ `<thead><tr><th>Zdroj</th><th>Energia kWh</th><th>Náklady</th><th>€/kWh</th></tr></thead><tbody>
+  <tr><td>Plyn SPP (${nf(T.sppM3)} m³)</td><td data-l="Energia kWh">${nf(T.sppKwh)}</td><td data-l="Náklady">${eur(T.sppEur)}</td><td data-l="€/kWh">${nf(T.sppPerKwh,4)}</td></tr>
+  <tr><td>El. bojler — plná cena siete</td><td data-l="Energia kWh">${nf(T.zseKwh)}</td><td data-l="Náklady">${eur(T.zseEurFull)}</td><td data-l="€/kWh">${nf(T.zsePerKwhFull,4)}</td></tr>
+  <tr><td>El. bojler — priem. cena s PV</td><td data-l="Energia kWh">${nf(T.zseKwh)}</td><td data-l="Náklady">${eur(T.zseEurAvg)}</td><td data-l="€/kWh">${nf(T.zsePerKwhAvg,4)}</td></tr>
+  <tr class="tot"><td>Naviac oproti plynu (s PV)</td><td data-l="Energia kWh">—</td><td data-l="Náklady" class="neg">+${eur(T.savingAvg)}</td><td data-l="Pomer">${nf(T.zsePerKwhAvg/T.sppPerKwh,2)}×</td></tr></tbody>`;
+document.getElementById('tuvNote').innerHTML='Ohrev vody elektrinou je aj s PV drahší než plynom — pri plnej cene siete <b>'+nf(T.zsePerKwhFull/T.sppPerKwh,2)+'×</b>, s priemernou cenou vrátane vlastnej výroby <b>'+nf(T.zsePerKwhAvg/T.sppPerKwh,2)+'×</b>. Prínos je v odpojení od plynu (zrušený fixný poplatok, emisie) a vo využití letných prebytkov PV, nie v cene energie.';
+
+document.getElementById('tFin').innerHTML=
+ '<thead><tr><th>Položka</th><th>Fosil</th><th>Elektrifikácia bez PV</th><th>Elektrifikácia s PV</th><th>Úspora vs. fosil</th><th>Úspora %</th></tr></thead><tbody>'+
+ F.items.map(r=>{const t=r.name==='TOTAL';const d=r.fossil-r.pv;
+ return `<tr class="${t?'tot':''}"><td>${t?'<b>SPOLU</b>':r.name}</td><td data-l="Fosil">${eur(r.fossil)}</td><td data-l="Elektrifikácia bez PV">${eur(r.elek)}</td><td data-l="Elektrifikácia s PV">${eur(r.pv)}</td><td data-l="Úspora vs. fosil" class="${d>0?'pos':'neg'}">${d>0?'−':'+'}${eur(Math.abs(d))}</td><td data-l="Úspora %">${nf(d/r.fossil*100,0)} %</td></tr>`}).join('')+'</tbody>';
+
+/* ---------- CO2 ---------- */
+const K=DATA.co2;
+kpi('kpiCo2',[
+ {l:'Ročná úspora CO₂',v:nf(-(K.emis[0]+K.emis[1]+K.emis[2]),1),u:'t CO₂eq',hl:1,d:'EV + TČ + PV spolu'},
+ {l:'Za životnosť',v:nf(-(K.life[0]+K.life[1]+K.life[2]),0),u:'t CO₂eq',hl:1,d:'EV 15r · TČ 15r · PV 30r'},
+ {l:'EV',v:nf(-K.emis[0],2),u:'t/rok',d:'oproti benzínovému autu (lifecycle)'},
+ {l:'Tepelné čerpadlo',v:nf(-K.emis[1],2),u:'t/rok',d:'oproti plynovému kotlu'},
+ {l:'Fotovoltika 11 kWp',v:nf(-K.emis[2],2),u:'t/rok',d:'oproti sieťovej elektrine'},
+ {l:'Nahradená energia',v:nf(-(K.energy[0]+K.energy[1]+K.energy[2])/1000,1),u:'MWh/rok',d:'fosílna energia, ktorú už nekupujem'},
+]);
+const co2col=[C.ev,C.tc,C.pv];
+NC(k1,{type:'bar',data:{labels:K.pillars,datasets:[{data:K.emis.map(v=>-v),backgroundColor:co2col,borderRadius:5}]},
+ options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>nf(c.parsed.y,2)+' t CO₂eq / rok'}}},scales:{x:{grid:{display:false}},y:ys('t CO₂eq / rok')}}});
+NC(k2,{type:'bar',data:{labels:K.pillars,datasets:[{data:K.life.map(v=>-v),backgroundColor:co2col,borderRadius:5}]},
+ options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>nf(c.parsed.y,1)+' t CO₂eq'}}},scales:{x:{grid:{display:false}},y:ys('t CO₂eq za životnosť')}}});
+NC(k3,{type:'bar',data:{labels:K.pillars,datasets:[
+ {label:'Z obstarávacej ceny',data:K.costPerTon,backgroundColor:C.muted,borderRadius:4},
+ {label:'Z rozdielu nákladov (reálne)',data:K.diffPerTon,backgroundColor:C.good,borderRadius:4}]},
+ options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+eur(c.parsed.y)+' / t'}}},scales:{x:{grid:{display:false}},y:ys('EUR / t CO₂eq')}}});
+NC(k4,{type:'bar',data:{labels:K.pillars,datasets:[{data:K.energy.map(v=>-v/1000),backgroundColor:co2col,borderRadius:5}]},
+ options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>nf(c.parsed.y,2)+' MWh / rok'}}},scales:{x:{grid:{display:false}},y:ys('MWh / rok')}}});
+document.getElementById('tCo2').innerHTML=
+ '<thead><tr><th>Pilier</th><th>Obstaranie</th><th>Životnosť</th><th>CO₂ / rok</th><th>CO₂ za život.</th><th>€/t z obstarania</th><th>€/t reálne</th></tr></thead><tbody>'+
+ K.pillars.map((p,i)=>`<tr><td>${p}</td><td data-l="Obstaranie">${eur(K.purchase[i])}</td><td data-l="Životnosť">${nf(K.years[i])} r</td><td data-l="CO₂ / rok">${nf(-K.emis[i],2)} t</td><td data-l="CO₂ za životnosť">${nf(-K.life[i],1)} t</td><td data-l="€/t z obstarania">${eur(K.costPerTon[i])}</td><td data-l="€/t reálne">${eur(K.diffPerTon[i])}</td></tr>`).join('')+'</tbody>';
+
+/* ---------- EV ---------- */
+const E=DATA.ev, e12=E.slice(-12), eL=E.map(x=>x.m+' '+String(x.y).slice(2));
+const km12=e12.reduce((s,x)=>s+(x.km||0),0);
+const kwh12=e12.reduce((s,x)=>s+(x.home||0)+(x.out||0),0);
+const eur12=e12.reduce((s,x)=>s+(x.eurHome||0)+(x.eurOut||0),0);
+const homeShare=e12.reduce((s,x)=>s+(x.home||0),0)/kwh12;
+kpi('kpiEv',[
+ {l:'Najazdené (12m)',v:nf(km12),u:'km',hl:1,d:'stav tachometra '+nf(E[E.length-1].odo)+' km'},
+ {l:'Spotreba energie',v:nf(kwh12),u:'kWh',d:nf(kwh12/km12*100,2)+' kWh/100 km vrátane strát'},
+ {l:'Náklady na energiu',v:eur(eur12),u:'/rok',hl:1,d:nf(eur12/km12*100,2)+' € / 100 km'},
+ {l:'Nabíjanie doma',v:pc(homeShare,0),u:'',d:'zvyšok verejné nabíjačky'},
+ {l:'Priem. cena kWh',v:nf(eur12/kwh12,3),u:'€/kWh',d:'doma '+nf(e12.reduce((s,x)=>s+(x.eurHome||0),0)/e12.reduce((s,x)=>s+(x.home||0),0),3)+' €/kWh'},
+ {l:'Zdravie batérie',v:nf(DATA.soh[DATA.soh.length-1].soh,1),u:'%',d:'SoH · pokles '+nf(DATA.soh[0].soh-DATA.soh[DATA.soh.length-1].soh,1)+' b. za '+nf((new Date(DATA.soh[DATA.soh.length-1].d)-new Date(DATA.soh[0].d))/2.628e9,0)+' mes.'},
+]);
+
+NC(v1,{data:{labels:eL,datasets:[
+ {type:'bar',label:'Doma (wallbox)',data:E.map(x=>x.home),backgroundColor:C.ev,stack:'s',borderRadius:2},
+ {type:'bar',label:'Verejné nabíjačky',data:E.map(x=>x.out),backgroundColor:'#8a5cf0',stack:'s',borderRadius:2},
+ {type:'line',label:'kWh / 100 km',data:E.map(x=>x.cons100),borderColor:C.pv,tension:.35,pointRadius:2.5,borderWidth:2.5,yAxisID:'y2'}
+]},options:{scales:{x:gs(1),y:ys('kWh',{stacked:true}),y2:{position:'right',grid:{display:false},title:{display:true,text:'kWh/100 km',color:'#6b7a8c'}}},interaction:{mode:'index',intersect:false}}});
+
+NC(v2,{data:{labels:eL,datasets:[
+ {type:'bar',label:'Najazdené km',data:E.map(x=>x.km),backgroundColor:C.home,borderRadius:3},
+ {type:'line',label:'Náklady EUR',data:E.map(x=>(x.eurHome||0)+(x.eurOut||0)),borderColor:C.bad,tension:.35,pointRadius:2.5,borderWidth:2.5,yAxisID:'y2'}
+]},options:{scales:{x:gs(),y:ys('km'),y2:{position:'right',grid:{display:false},title:{display:true,text:'EUR',color:'#6b7a8c'}}},interaction:{mode:'index',intersect:false}}});
+
+NC(v3,{type:'line',data:{labels:DATA.soh.map(x=>new Date(x.d).toLocaleDateString('sk-SK',{month:'short',year:'2-digit'})),
+ datasets:[{label:'SoH %',data:DATA.soh.map(x=>x.soh),borderColor:C.good,backgroundColor:'rgba(62,207,142,.12)',fill:true,tension:.25,pointRadius:3,borderWidth:2.5}]},
+ options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>nf(c.parsed.y,1)+' % kapacity'}}},scales:{x:{grid:{display:false}},y:ys('% kapacity',{suggestedMin:92,suggestedMax:100})}}});
+
+NC(v4,{type:'bar',data:{labels:eL,datasets:[
+ {label:'Doma €/kWh',data:E.map(x=>x.home?x.eurHome/x.home:null),backgroundColor:C.ev,borderRadius:3},
+ {label:'Verejné €/kWh',data:E.map(x=>x.out?x.eurOut/x.out:null),backgroundColor:'#8a5cf0',borderRadius:3}]},
+ options:{scales:{x:gs(),y:ys('EUR / kWh')},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+nf(c.parsed.y,3)}}}}});
+
+document.getElementById('tCars').innerHTML=
+ '<thead><tr><th>Auto</th><th>Kúpna cena</th><th>Spotreba</th><th>Palivo/EE ročne</th><th>Prevádzka ročne</th><th>Predajná cena</th><th>TCO</th><th>TCO mesačne</th></tr></thead><tbody>'+
+ DATA.cars.map(c=>`<tr><td>${c.name}</td><td data-l="Kúpna cena">${eur(c.purchase)}</td><td data-l="Spotreba">${nf(c.cons,1)} ${c.name==='ICE'?'l':'kWh'}/100</td><td data-l="Palivo/EE ročne">${eur(c.fuelY)}</td><td data-l="Prevádzka ročne">${eur(c.opY)}</td><td data-l="Predajná cena">${eur(c.sell)}</td><td data-l="TCO">${eur(c.tco)}</td><td data-l="TCO mesačne"><b>${eur(c.tcoM)}</b></td></tr>`).join('')+'</tbody>';
+
+document.getElementById('tEv').innerHTML=
+ '<thead><tr><th>Mesiac</th><th>Doma kWh</th><th>Verejné kWh</th><th>Doma €</th><th>Verejné €</th><th>km</th><th>kWh/100 km</th><th>ODO</th></tr></thead><tbody>'+
+ E.slice().reverse().map(x=>`<tr><td>${x.m} ${x.y}</td><td data-l="Doma kWh">${nf(x.home,1)}</td><td data-l="Verejné kWh">${nf(x.out,1)}</td><td data-l="Doma €">${eur(x.eurHome,2)}</td><td data-l="Verejné €">${eur(x.eurOut,2)}</td><td data-l="km">${nf(x.km)}</td><td data-l="kWh/100 km">${nf(x.cons100,2)}</td><td data-l="ODO">${nf(x.odo)}</td></tr>`).join('')+'</tbody>';
+
+
+}
+/* ---------- TABS ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+ b.classList.add('on');document.getElementById(b.dataset.t).classList.add('on');
+ Object.values(CH).forEach(c=>{try{c.resize()}catch(e){}});
+ window.scrollTo({top:0,behavior:'smooth'});
+});
+
+fetch('data.json').then(r=>r.json()).then(d=>{DATA=d;render();})
+ .catch(e=>{document.querySelector('.sub').innerHTML+=' <span class="pill" style="color:#f2704f">chyba nacitania data.json: '+e.message+'</span>';});
+
+</script>
+</body>
+</html>
