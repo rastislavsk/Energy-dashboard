@@ -29,3 +29,8 @@ Podmienka pre oboje: stránka musí bežať cez HTTPS (GitHub Pages áno).
   sa nová verzia ukáže hneď po znovuotvorení appky.
 - Ak pribudne nový súbor, ktorý má fungovať offline, dopíš ho do zoznamu `PRECACHE`
   v `sw.js` a zvýš `CACHE_VERSION` (napr. `v1` → `v2`), aby sa starý cache vymazal.
+- **`id` v manifeste nikdy nedávaj ako `"./"`.** Vyzerá to logicky, ale podľa
+  špecifikácie sa `id` nevyhodnocuje voči adresáru manifestu, ale voči *doméne* —
+  takže `"./"` skončí ako `https://rastislavsk.github.io/` pre každú appku na tejto
+  doméne. Chrome potom dve rôzne appky považuje za jednu a druhá sa nedá nainštalovať.
+  Preto je tu natvrdo `"id": "/Energy-dashboard/"`.
